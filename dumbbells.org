@@ -79,7 +79,7 @@ script
 #+END_SRC
 
 ** readme
-#+BEGIN_SRC markdown
+#+BEGIN_SRC markdown :tangle ./readme.md
 # design-dumbbells
 
 A parametric design document for building dumbbells out of metal.
