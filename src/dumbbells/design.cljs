@@ -8,19 +8,22 @@
             [baton.core :as b]
             [forge.proto :as f]))
 
-(def g-sc (r/atom 25))
-(def g-plate-r (r/atom 2.5))
-(def g-plate-t (r/atom 0.115))
-(def g-density (r/atom 0.285))
-(def g-view-rot (r/atom 0))
-(def g-desired-mass (r/atom 5))
-
 (def state
   (r/atom
    {:scale 25
-    :r @g-plate-r}))
+    :view-rotation 0
 
-(declare calculate-plate-n)
+    :plate-radius 2.5
+    :plate-thickness 0.115
+    :plate-n 4
+
+    :handle-radius (/ 1.315 2)
+    :handle-thickness 0.083
+    :grip-width 6.5
+
+    :material-density 0.285
+    :desired-mass 5}))
+
 (defn hex-plate
   [or ir t]
   (let [sk (f/union
@@ -38,14 +41,48 @@
                (f/circle (- r t)))
       (f/extrude h)))
 
-(defn plate 
-  [r]
-  (hex-plate r (/ 1.315 2) @g-plate-t))
+(defn plate
+  [state]
+  (let [or (r/cursor state [:plate-radius])
+        ir (r/cursor state [:handle-radius])
+        t (r/cursor state [:plate-thickness])]
+    (hex-plate @or @ir @t)))
 
 (defn handle
-  [n]
-  (let [h (+ 5.5 (* n @g-plate-t))] 
-    (tube-rnd (/ 1.315 2) 0.1 h)))
+  [state]
+  (let [r (r/cursor state [:handle-radius])
+        t (r/cursor state [:handle-thickness])
+        l1 (r/cursor state [:grip-width])
+        pn (r/cursor state [:plate-n])
+        pt (r/cursor state [:plate-thickness])
+        l2 (* @pt @pn)]
+    (tube-rnd @r @t (+ @l1 l2))))
+
+(declare update-plate-n!)
+(defn assembly
+  [state]
+  (let [plate-r (r/cursor state [:plate-radius])
+        plate-t (r/cursor state [:plate-thickness])
+        grip-w (r/cursor state [:grip-width])
+
+        plate-n (update-plate-n! state 60) #_(r/cursor state [:plate-n])
+        handle-l (+ @grip-w (* plate-n @plate-t))
+
+        grip (-> (handle state)
+                 (f/translate [0 0 (/ handle-l -2.0)])
+                 (f/rotate [22.5 90 0]))
+        hex (-> (plate state)
+                (f/rotate [0 90 0]))
+        
+        rstack (reduce 
+                f/union
+                (for [n (range (/ plate-n 2))]
+                  (f/translate 
+                   hex 
+                   [(+ (- (/ handle-l 2)) (* n @plate-t)) 0 0])))
+        lstack (f/rotate rstack [0 180 0])]
+    
+    (reduce f/union [lstack grip rstack])))
 
 (defn plate-volume
   [plate]
@@ -67,146 +104,145 @@
         a2 (* Math/PI (f/sq ir))]
     (* (- a1 a2) height)))
 
-(defn total-mass
-  []
-  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)
-        plate (* (plate-volume (plate @g-plate-r)) @g-density)
-        handle (* (tube-volume (handle pn)) @g-density)]
-    (+ (* pn plate) handle)))
-
-(defn plate-iso
-  []
-  [:<>
-   (svg/fig
-    1 "Isometric View of Hex Plate"
-    (svg/dwg-2d
-     [250 250 1]
-     (shape/axes-iso)
-     (svg/scale 
-      @g-sc
-      (svg/g
-       (shape/render-curves 
-        (-> (plate @g-plate-r)
-            (f/rotate [0 90 0]))
-        shape/isometric-xf 
-        "black")))))])
-
-(defn plate-front
-  [state]
-  [:<>
-   (svg/fig
-    1 "Front View of Hex Plate"
-    (svg/dwg-2d
-     [250 250 1]
-     (svg/scale
-      @g-sc #_(:scale state)
-      (svg/g
-
-       (->> (svg/text (str @g-plate-r "in"))
-            (svg/translate [-2 5])
-            (svg/scale 0.125))
-
-       (shape/render-curves 
-        (-> (plate @g-plate-r #_(:r state))
-            (f/rotate [0 0 30]))
-        shape/front-xf 
-        "black")))))])
-
-(defn handle-iso
-  []
-  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)]
-    [:<>
-     (svg/fig
-      2 "Isometric View of Handle"
-      (svg/dwg-2d
-       [250 250 1]
-       (shape/axes-iso)
-       (svg/scale 
-        @g-sc
-        (svg/g
-         (shape/render-curves 
-          (-> (handle pn)
-              (f/translate [0 0 (/ (+ 5 (* pn @g-plate-t)) -2.0)])
-              (f/rotate [22.5 90 0]))
-          shape/isometric-xf
-          "black")))))]))
-
-(defn view-controls []
-  [:div
-   [:div 
-    [b/slider g-sc 1 100 1]
-    [:span "zoom: " @g-sc]]
-   [:div 
-    [b/slider g-view-rot 0 360 1]
-    [:span "rotate: " @g-view-rot]]]) 
-
-(defn parameters []
-  [:div
-   [:div 
-    [b/slider g-plate-t 0.085 0.75 0.005]
-    [:span "plate t: " @g-plate-t]]
-   [:div 
-    [b/slider g-plate-r 1.5 5.0 0.25]
-    [:span "plate R: " @g-plate-r]]
-   [:div
-    [b/slider g-desired-mass 5 100 2.5]
-    [:span "Desired Mass: " @g-desired-mass " lbs"]]])
-
 (defn calculate-plate-n
-  [r t mass density]
-  (let [p (plate r)
-        h (tube-rnd (/ 1.315 2) 0.1 t)
-        um (* (+ (tube-volume h) (plate-volume p)) density)
-        ns (for [n (range 2 60 2)]
-             (let [hm (* (tube-volume (handle n)) @g-density)]
-               [(- (- mass hm) (* um n)) n]))]
+  [state max]
+  (let [desired-mass (r/cursor state [:desired-mass])
+        density (r/cursor state [:material-density])
+        
+        handle-r (r/cursor state [:handle-radius])
+        handle-t (r/cursor state [:handle-thickness])
+        plate-t (r/cursor state [:plate-thickness])
+        grip-w (r/cursor state [:grip-width])
+
+        plate-m (* (plate-volume (plate state)) 
+                   @density)
+        grip-m (* (tube-volume (tube-rnd @handle-r @handle-t @grip-w)) 
+                  @density)
+        handle-slice-m (* (tube-volume (tube-rnd @handle-r @handle-t @plate-t)) 
+                          @density)
+        
+        ns (for [n (range 2 max 2)]
+             (let [total-m (+ grip-m (* n (+ plate-m handle-slice-m)))]
+               [(- @desired-mass total-m) n]))]
     (second (first (sort-by first (filter #(pos? (first %)) ns))))))
 
-(defn calculate-hex-r
+(defn update-plate-n!
+  [state max]
+  (let [new-n (calculate-plate-n state max)
+        n (r/cursor state [:plate-n])]
+    (reset! n new-n)
+    new-n))
+
+#_(defn calculate-hex-r
   [min-r max-r t mass density]
   (let [f #(* (plate-volume (plate %)) density)
         rs (for [r (range min-r max-r 0.01)]
              [(Math/abs (- (f r) mass)) r])]
     (second (first (sort-by first rs)))))
 
-(defn design
-  []
-  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)
-        length (+ 5.5 (* pn @g-plate-t))
-        actual-mass (total-mass)
-        handle (-> (handle pn)
-                   (f/translate [0 0 (/ length -2.0)])
-                   (f/rotate [22.5 90 0]))
-        plate (-> (plate @g-plate-r)
-                  (f/rotate [0 90 0]))
-        r-mass (/ (- @g-desired-mass actual-mass) 2)
-        small-plate-r (calculate-hex-r 0.75 @g-plate-r @g-plate-t r-mass @g-density) 
-        small-plate (-> (plate small-plate-r)
-                        (f/rotate [0 90 0]))
-        rstack (reduce 
-                f/union
-                (for [n (range (/ pn 2))]
-                  (f/translate 
-                   plate 
-                   [(+ (- (/ length 2)) (* n @g-plate-t)) 0 0])))
-        lstack (f/rotate rstack [0 180 0])]
-    (reduce f/union [small-plate lstack handle rstack])))
+(defn total-mass
+  [state]
+  (let [density (r/cursor state [:material-density])
+        pn (calculate-plate-n state 60)
+        plate  (* (plate-volume (plate state)) @density)
+        handle (* (tube-volume (handle state)) @density)]
+    (+ (* pn plate) handle)))
 
-(defn design-iso
-  []
-  [:<>
-   (svg/fig
-    2 "Isometric View of Handle"
-    (svg/dwg-2d
-     [300 250 1]
-     (shape/axes-iso)
-     (svg/scale 
-      @g-sc
-      (svg/g
-       (shape/render-curves 
-        (-> (design) (f/rotate [0 0 @g-view-rot]))
-        shape/isometric-xf
-        "black")))))])
+(defn plate-front
+  [state]
+  (let [zoom (r/cursor state [:scale])
+        plate-r (r/cursor state [:plate-radius])]
+    [:<>
+     (svg/fig
+      1 "Front View of Hex Plate"
+      (svg/dwg-2d
+       [250 250 1]
+       (svg/scale
+        @zoom
+        (svg/g
+         
+         #_(->> (svg/text (str @plate-r "in"))
+              (svg/translate [0 0])
+              (svg/scale 0.5))
+         
+         (shape/render-curves 
+          (-> (plate state)
+              (f/rotate [0 0 30]))
+          shape/front-xf 
+          "black")))))]))
+
+(defn handle-iso
+  [state]
+  (let [zoom (r/cursor state [:scale])
+        plate-r (r/cursor state [:plate-radius])]
+    [:<>
+     (svg/fig
+      1 "Front View of Hex Plate"
+      (svg/dwg-2d
+       [250 250 1]
+       (svg/scale
+        @zoom
+        (svg/g
+         
+         (->> (svg/text (str @plate-r "in"))
+              (svg/translate [-2 5])
+              (svg/scale 1))
+         
+         (shape/render-curves 
+          (-> (handle state)
+              (f/rotate [0 0 30]))
+          shape/isometric-xf 
+          "black")))))]))
+
+(defn assembly-iso
+  [state]
+  (let [zoom (r/cursor state [:scale])
+        rotation (r/cursor state [:view-rotation])]
+    [:<>
+     (svg/fig
+      2 "Isometric View of Assembly"
+      (svg/dwg-2d
+       [300 250 1]
+       (shape/axes-iso)
+       (svg/scale 
+        @zoom
+        (svg/g
+         (shape/render-curves 
+          (-> (assembly state) 
+              (f/rotate [0 0 @rotation]))
+          shape/isometric-xf
+          "black")))))]))
+
+(defn view-controls [state]
+  (let [zoom   (r/cursor state [:scale])
+        rot    (r/cursor state [:view-rotation])]
+    [:div
+     [:div 
+      [b/slider zoom 1 100 1]
+      [:span "  zoom: " @zoom]]
+     [:div 
+      [b/slider rot 0 360 1]
+      [:span "rotate: " @rot]]])) 
+
+(defn parameters []
+  (let [zoom (r/cursor state [:scale])
+        rot (r/cursor state [:view-rotation])
+        plate-t (r/cursor state [:plate-thickness])
+        plate-r (r/cursor state [:plate-radius])
+        desired-mass (r/cursor state [:desired-mass])
+        plate-n (r/cursor state [:plate-n])]
+    [:div
+     [:div 
+      [b/slider plate-t 0.085 0.75 0.005]
+      [:span "plate t: " @plate-t]]
+     [:div
+      [b/slider plate-r 1.5 5.0 0.25]
+      [:span "plate R: " @plate-r]]
+     [:div
+      [b/slider desired-mass 5 100 2.5]
+      [:span "Desired Mass: " @desired-mass " lbs"]]
+     [:div
+      [:span "Number of plates : " @plate-n]]]))
 
 (def title "## Dumbbells Parametric Design Doc.")
 (def intro (str 
@@ -223,29 +259,15 @@ You can use this in your browser, just try adjusting some settings!
   (markdown title intro))
 
 (defn doc []
-  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)]
-    [:<>
-     intro-component
-     [plate-front @state]
-     [parameters]
-     #_[design-iso]
-     [view-controls]
-     [:p "N: " pn]
-     [:p "Actual Mass: " (f/round (total-mass) 3)]
-     [:p "------------"]
-     [:p "Single Plate Mass: " (f/round (*
-                                         (plate-volume (plate @g-plate-r))
-                                         @g-density)
-                                        3)]
-     [:p "All Plates Mass: " (f/round (* 
-                                       (plate-volume (plate @g-plate-r))
-                                       (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)
-                                       @g-density)
-                                      3)]
-   [:p "Handle Mass: " (f/round (*
-                                 (tube-volume (handle pn))
-                                 @g-density)
-                                3)]]))
+  [:<>
+   intro-component
+   #_[plate-front state]
+   [parameters state]
+   
+   #_[handle-iso state]
+   
+   [assembly-iso state]
+   [view-controls state]])
 
 (b/mount doc)
 (defn ^:after-load re-render [] (b/mount doc))
