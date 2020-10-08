@@ -1,0 +1,14 @@
+{:paths
+ ["src" "tests" "resources"]
+
+ :deps 
+ {org.clojure/clojurescript  {:mvn/version "1.10.773"}
+  reagent                    {:mvn/version "0.10.0"}
+  forge/forge                {:local/root  "../../dev/forge"}
+  stylo/stylo                {:local/root  "../../dev/stylo"}
+  baton/baton                {:local/root  "../../dev/baton"}
+  com.bhauman/figwheel-main  {:mvn/version "0.2.6"}}
+
+ :aliases
+ {:dev {:main-opts ["-m" "figwheel.main" "--build" "dev" "--repl"]}
+  :prod {:main-opts ["-m" "figwheel.main" "-b" "prod"]}}}

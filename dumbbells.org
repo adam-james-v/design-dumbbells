@@ -1,0 +1,609 @@
+* ;;
+#+Title: dumbbells
+#+SUBTITLE: dumbbells parametric design
+#+AUTHOR: adam-james
+#+STARTUP: overview
+#+PROPERTY: header-args :cache yes :noweb yes :results inline :mkdirp yes :padline yes :async
+#+HTML_DOCTYPE: html5
+#+OPTIONS: toc:2 num:nil html-style:nil html-postamble:nil html-preamble:nil html5-fancy:t
+
+** deps.edn
+#+NAME: deps.edn
+#+begin_src clojure :tangle ./deps.edn
+{:paths
+ ["src" "tests" "resources"]
+
+ :deps 
+ {org.clojure/clojurescript  {:mvn/version "1.10.773"}
+  reagent                    {:mvn/version "0.10.0"}
+  forge/forge                {:local/root  "../../dev/forge"}
+  stylo/stylo                {:local/root  "../../dev/stylo"}
+  baton/baton                {:local/root  "../../dev/baton"}
+  com.bhauman/figwheel-main  {:mvn/version "0.2.6"}}
+
+ :aliases
+ {:dev {:main-opts ["-m" "figwheel.main" "--build" "dev" "--repl"]}
+  :prod {:main-opts ["-m" "figwheel.main" "-b" "prod"]}}}
+
+#+end_src
+
+** build-config
+#+NAME: dev.cljs.edn
+#+BEGIN_SRC clojure :tangle ./dev.cljs.edn
+^{:watch-dirs ["src"]
+  :css-dirs ["resources"]}
+{:main dumbbells.design}
+
+#+END_SRC
+
+#+NAME: prod.cljs.edn
+#+BEGIN_SRC clojure :tangle ./prod.cljs.edn
+^{:watch-dirs ["src"]
+  :css-dirs ["resources"]}
+{:main dumbbells.design
+ :optimizations :advanced}
+
+#+END_SRC
+
+** embed
+This is a way to create single file 'embedded' apps.
+#+BEGIN_SRC clojure tangle ./embed
+#!/usr/bin/env bb
+
+(defn base [style script]
+  (str "<!DOCTYPE html>
+<html>
+<head>
+<title>asdf-app</title>
+<style>"
+
+style
+
+"</style>
+</head>
+<body>
+<div id=\"root\"></div>
+<script>"
+  
+script
+
+"</script>
+</body>
+</html>"))
+
+(def style (slurp "resources/public/style.css"))
+(def script (slurp "target/public/cljs-out/prod-main.js"))
+
+(spit "out.html" (base style script))
+
+#+END_SRC
+
+** readme
+#+BEGIN_SRC markdown
+# design-dumbbells
+
+A parametric design document for building dumbbells out of metal.
+
+#+END_SRC
+* resources
+*** html
+#+NAME: index.html
+#+BEGIN_SRC html :tangle ./resources/public/index.html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>asdf-app</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/cljs-out/dev-main.js"></script>
+  </body>
+</html>
+#+END_SRC
+
+*** css
+#+NAME: style.css
+#+BEGIN_SRC css :tangle ./resources/public/style.css
+#root {
+  margin: 0;
+  padding: 0;
+}
+
+,*, *:after, *:before {
+  box-sizing: border-box;
+}
+
+body {
+  font: 18px/1.6 Georgia, "Times New Roman", Times, serif;
+}
+
+table, input {
+  font-size: 16px;
+}
+
+button, select {
+  font-size: 14px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  line-height: 1.2;
+}
+
+/*
+#root svg {
+  border: black solid 1px;
+}
+*/
+
+text {
+  font-family: monospace;
+  fill: #2e3440;
+  stroke: none;
+}
+
+.ln {
+  stroke: #2e3440;
+  stroke-width: 2px;
+  stroke-linecap: round;
+}
+
+.ln-d {
+  stroke: #2e3440;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-dasharray: 4, 5;
+}
+
+.clr {
+  fill: none;
+}
+
+.attn {
+  fill: rgb(234, 82, 111);
+}
+
+.attn-ln {
+  stroke: rgb(234, 82, 111);
+  stroke-width: 3px;
+}
+
+.face {
+  fill: #a3be8c;
+  fill-rule: evenodd;
+}
+
+rect, line, path, polygon, polyline, circle {
+  vector-effect: non-scaling-stroke;
+}
+
+table {
+  width: auto;
+}
+
+th, td {
+  vertical-align: top;
+  padding: 5px;
+  border: 1px solid #ddd;
+}
+
+table ul {
+  list-style-type: none;
+  padding-left: 4px;
+  margin: 0;
+}
+
+table li:before {
+  content: ▢ ;
+}
+
+table p {
+  margin: 0;
+}
+
+.figure {
+  padding-left: 7px;
+}
+
+.figure p {
+  font-size: smaller;
+  font-style: italic;
+}
+
+code {
+  font-size: 0.75em;
+}
+
+code.block {
+  padding: 8px;
+  background: #2e3440;
+  color: #dedee9;
+  white-space: pre-wrap;
+  display: inline-block;
+  width: 100%;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (print) {
+
+  .pagebreak {
+    page-break-after: always;
+  }
+
+}
+
+body {
+  margin: 10px auto;
+  max-width: 760px;
+  color: #444;
+  padding: 0 20px;
+}
+
+a {
+  color: #07c;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #059;
+  text-decoration: underline;
+}
+
+hr {
+  border: 0;
+  margin: 25px 0;
+}
+
+table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  text-align: left;
+  padding-bottom: 25px;
+}
+
+td, th {
+  padding: 5px;
+  vertical-align: bottom;
+}
+
+td, th, hr {
+  border-bottom: 1px solid #ddd;
+}
+
+pre {
+  padding: 8px;
+  white-space: pre-wrap;
+}
+
+button, select {
+  background: #ddd;
+  border: 0;
+  padding: 9px 20px;
+}
+
+input {
+  padding: 5px;
+  vertical-align: bottom;
+}
+
+button:hover {
+  background: #eee;
+}
+
+textarea {
+  border-color: #ccc;
+}
+
+#+END_SRC
+
+* ns
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(ns ^:figwheel-hooks dumbbells.design
+  (:require [reagent.dom :as rdom]
+            [reagent.core :as r]
+            [reagent.ratom :refer [reaction]]
+            [stylo.shape :as shape]
+            [stylo.svg :as svg]
+            [stylo.parser :as parser]
+            [baton.core :as b]
+            [forge.proto :as f]))
+
+#+END_SRC
+
+* globals
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(def g-sc (r/atom 25))
+(def g-plate-r (r/atom 2.5))
+(def g-plate-t (r/atom 0.115))
+(def g-density (r/atom 0.285))
+(def g-view-rot (r/atom 0))
+(def g-desired-mass (r/atom 5))
+
+(def state
+  (r/atom
+   {:scale 25
+    :r @g-plate-r}))
+
+#+END_SRC
+
+* parts
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(declare calculate-plate-n)
+(defn hex-plate
+  [or ir t]
+  (let [sk (f/union
+            (f/circle ir)
+            (f/polygon
+             (f/regular-polygon-pts or 6)))]
+    (-> sk
+        (f/extrude t)
+        (f/rotate [0 0 30])
+        (f/translate [0 0 0]))))
+
+(defn tube-rnd
+  [r t h]
+  (-> (f/union (f/circle r) 
+               (f/circle (- r t)))
+      (f/extrude h)))
+
+(defn plate 
+  [r]
+  (hex-plate r (/ 1.315 2) @g-plate-t))
+
+(defn handle
+  [n]
+  (let [h (+ 5.5 (* n @g-plate-t))] 
+    (tube-rnd (/ 1.315 2) 0.1 h)))
+
+#+END_SRC
+
+* property calculations
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(defn plate-volume
+  [plate]
+  (let [[bvmax bvmin] (f/bounding-box-corners plate)
+        height (Math/abs (- (last bvmax) (last bvmin)))
+        pts (last (first (:history (last (first (:history plate))))))
+        a1 (f/polygon-area pts)
+        ir (last (first (:history (second (first (:history plate))))))
+        a2 (* Math/PI (f/sq ir))]
+    (* (- a1 a2) height)))
+
+(defn tube-volume
+  [tube]
+  (let [[bvmax bvmin] (f/bounding-box-corners tube)
+        height (Math/abs (- (last bvmax) (last bvmin)))
+        or (last (first (:history (second (first (:history tube))))))
+        a1 (* Math/PI (f/sq or))
+        ir (last (first (:history (last (first (:history tube))))))
+        a2 (* Math/PI (f/sq ir))]
+    (* (- a1 a2) height)))
+
+(defn total-mass
+  []
+  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)
+        plate (* (plate-volume (plate @g-plate-r)) @g-density)
+        handle (* (tube-volume (handle pn)) @g-density)]
+    (+ (* pn plate) handle)))
+
+#+END_SRC
+
+* part views
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(defn plate-iso
+  []
+  [:<>
+   (svg/fig
+    1 "Isometric View of Hex Plate"
+    (svg/dwg-2d
+     [250 250 1]
+     (shape/axes-iso)
+     (svg/scale 
+      @g-sc
+      (svg/g
+       (shape/render-curves 
+        (-> (plate @g-plate-r)
+            (f/rotate [0 90 0]))
+        shape/isometric-xf 
+        "black")))))])
+
+(defn plate-front
+  [state]
+  [:<>
+   (svg/fig
+    1 "Front View of Hex Plate"
+    (svg/dwg-2d
+     [250 250 1]
+     (svg/scale
+      @g-sc #_(:scale state)
+      (svg/g
+
+       (->> (svg/text (str @g-plate-r "in"))
+            (svg/translate [-2 5])
+            (svg/scale 0.125))
+
+       (shape/render-curves 
+        (-> (plate @g-plate-r #_(:r state))
+            (f/rotate [0 0 30]))
+        shape/front-xf 
+        "black")))))])
+
+(defn handle-iso
+  []
+  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)]
+    [:<>
+     (svg/fig
+      2 "Isometric View of Handle"
+      (svg/dwg-2d
+       [250 250 1]
+       (shape/axes-iso)
+       (svg/scale 
+        @g-sc
+        (svg/g
+         (shape/render-curves 
+          (-> (handle pn)
+              (f/translate [0 0 (/ (+ 5 (* pn @g-plate-t)) -2.0)])
+              (f/rotate [22.5 90 0]))
+          shape/isometric-xf
+          "black")))))]))
+
+#+END_SRC
+
+* parameter-view
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(defn view-controls []
+  [:div
+   [:div 
+    [b/slider g-sc 1 100 1]
+    [:span "zoom: " @g-sc]]
+   [:div 
+    [b/slider g-view-rot 0 360 1]
+    [:span "rotate: " @g-view-rot]]]) 
+
+(defn parameters []
+  [:div
+   [:div 
+    [b/slider g-plate-t 0.085 0.75 0.005]
+    [:span "plate t: " @g-plate-t]]
+   [:div 
+    [b/slider g-plate-r 1.5 5.0 0.25]
+    [:span "plate R: " @g-plate-r]]
+   [:div
+    [b/slider g-desired-mass 5 100 2.5]
+    [:span "Desired Mass: " @g-desired-mass " lbs"]]])
+
+#+END_SRC
+
+* model-logic
+- user locks desired mass
+- user locks MAX hex. radius
+- calculate mass of handle
+- calculate mass of one max sized plate
+- calculate number of plates that result in mass closest to desired without going over
+- remaining mass is added by calculating size of smaller 'remainder plates'
+
+NOTE TO SELF: This may be a great time to learn logic programming. (core.logic)
+
+
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(defn calculate-plate-n
+  [r t mass density]
+  (let [p (plate r)
+        h (tube-rnd (/ 1.315 2) 0.1 t)
+        um (* (+ (tube-volume h) (plate-volume p)) density)
+        ns (for [n (range 2 60 2)]
+             (let [hm (* (tube-volume (handle n)) @g-density)]
+               [(- (- mass hm) (* um n)) n]))]
+    (second (first (sort-by first (filter #(pos? (first %)) ns))))))
+
+(defn calculate-hex-r
+  [min-r max-r t mass density]
+  (let [f #(* (plate-volume (plate %)) density)
+        rs (for [r (range min-r max-r 0.01)]
+             [(Math/abs (- (f r) mass)) r])]
+    (second (first (sort-by first rs)))))
+
+#+END_SRC
+
+* assembly
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(defn design
+  []
+  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)
+        length (+ 5.5 (* pn @g-plate-t))
+        actual-mass (total-mass)
+        handle (-> (handle pn)
+                   (f/translate [0 0 (/ length -2.0)])
+                   (f/rotate [22.5 90 0]))
+        plate (-> (plate @g-plate-r)
+                  (f/rotate [0 90 0]))
+        r-mass (/ (- @g-desired-mass actual-mass) 2)
+        small-plate-r (calculate-hex-r 0.75 @g-plate-r @g-plate-t r-mass @g-density) 
+        small-plate (-> (plate small-plate-r)
+                        (f/rotate [0 90 0]))
+        rstack (reduce 
+                f/union
+                (for [n (range (/ pn 2))]
+                  (f/translate 
+                   plate 
+                   [(+ (- (/ length 2)) (* n @g-plate-t)) 0 0])))
+        lstack (f/rotate rstack [0 180 0])]
+    (reduce f/union [small-plate lstack handle rstack])))
+
+#+END_SRC
+
+* assembly-views
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(defn design-iso
+  []
+  [:<>
+   (svg/fig
+    2 "Isometric View of Handle"
+    (svg/dwg-2d
+     [300 250 1]
+     (shape/axes-iso)
+     (svg/scale 
+      @g-sc
+      (svg/g
+       (shape/render-curves 
+        (-> (design) (f/rotate [0 0 @g-view-rot]))
+        shape/isometric-xf
+        "black")))))])
+
+#+END_SRC
+
+* doc
+Learn how to use cursors, it is better to build cursors and deref at use site rather than deref the entire state.
+
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(def title "## Dumbbells Parametric Design Doc.")
+(def intro (str 
+"This design is parametric in the desired mass. Given a plate thickness, maximum radius of hex shapes, and the desired mass of the finished dumbbell, this app will calculate the design for you.
+
+You can use this in your browser, just try adjusting some settings!
+"))
+
+(defn markdown
+  [& strings]
+  (mapcat (comp parser/->hiccup parser/doc-parse) strings))
+
+(def intro-component
+  (markdown title intro))
+
+(defn doc []
+  (let [pn (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)]
+    [:<>
+     intro-component
+     [plate-front @state]
+     [parameters]
+     #_[design-iso]
+     [view-controls]
+     [:p "N: " pn]
+     [:p "Actual Mass: " (f/round (total-mass) 3)]
+     [:p "------------"]
+     [:p "Single Plate Mass: " (f/round (*
+                                         (plate-volume (plate @g-plate-r))
+                                         @g-density)
+                                        3)]
+     [:p "All Plates Mass: " (f/round (* 
+                                       (plate-volume (plate @g-plate-r))
+                                       (calculate-plate-n @g-plate-r @g-plate-t @g-desired-mass 0.285)
+                                       @g-density)
+                                      3)]
+   [:p "Handle Mass: " (f/round (*
+                                 (tube-volume (handle pn))
+                                 @g-density)
+                                3)]]))
+
+#+END_SRC
+
+* mount
+#+BEGIN_SRC clojure :tangle ./src/dumbbells/design.cljs
+(b/mount doc)
+(defn ^:after-load re-render [] (b/mount doc))
+(defonce go (do (b/mount doc) true))
+#+END_SRC
