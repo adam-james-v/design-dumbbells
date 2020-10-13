@@ -148,50 +148,126 @@
         handle (* (tube-volume (handle state)) @density)]
     (+ (* pn plate) handle)))
 
+(defn handle-front
+  [state]
+  (let [zoom (r/cursor state [:scale])
+        handle-r (r/cursor state [:handle-radius])]
+    [:<>
+     (svg/fig
+      1 "Front View of Handle"
+      (svg/dwg-2d
+       [200 100 1]
+       (svg/scale
+        @zoom
+        (svg/g
+         (svg/style-element
+           {:stroke "blue"
+            :fill "blue"}
+           (svg/g
+            (->> (svg/text "r") 
+                 (svg/translate [(+ -4.125 @handle-r) 4.65])
+                 (svg/scale 0.05))
+            (svg/line [0 0] [@handle-r 0])))
+        
+         (shape/render-curves 
+          (handle state)
+          shape/top-xf
+          "black")))))]))
+
+(defn handle-right
+  [state]
+  (let [zoom (r/cursor state [:scale])
+        grip-w (r/cursor state [:grip-width])]
+    [:<>
+     (svg/fig
+      2 "Right View of Handle"
+      (svg/dwg-2d
+       [250 100 1]
+       (svg/scale
+        @zoom
+        (svg/translate 
+         [-100 0]
+         (svg/g
+          
+          (svg/style-element
+           {:stroke "blue"
+            :fill "blue"}
+           (svg/g
+            (->> (svg/text "L") 
+                 (svg/translate [(+ -4.375 (/ @grip-w 2)) 3.375])
+                 (svg/scale 0.05))
+            (svg/line [0 -1] [@grip-w -1])))
+  
+          (svg/style-element
+           {:stroke "red"
+            :fill "red"}
+           (svg/g
+            (->> (svg/text "GRIP-WIDTH") 
+                 (svg/translate [(+ (* 10 -4.375) -1.75 (/ @grip-w 2)) 6.25])
+                 (svg/scale 0.05))
+            (svg/line [0 1] [@grip-w 1])))
+         
+          (shape/render-curves 
+           (-> (handle state)
+               (f/translate [0 0 0])
+               (f/rotate [0 90 0]))
+           shape/right-xf
+           "black"))))))]))
+
 (defn plate-front
   [state]
   (let [zoom (r/cursor state [:scale])
         plate-r (r/cursor state [:plate-radius])]
     [:<>
      (svg/fig
-      1 "Front View of Hex Plate"
+      3 "Front View of Hex Plate"
       (svg/dwg-2d
        [250 250 1]
        (svg/scale
         @zoom
         (svg/g
          
-         #_(->> (svg/text (str @plate-r "in"))
-              (svg/translate [0 0])
-              (svg/scale 0.5))
-         
-         (shape/render-curves 
+         (svg/style-element
+          {:stroke "blue"
+           :fill "blue"}
+          (svg/g
+           (->> (svg/text "R") 
+                (svg/translate [(+ -4.5 (/ @plate-r 2)) 4.375])
+                (svg/scale 0.05))
+           (svg/line [0 0] [@plate-r 0])))
+
+         (shape/render-curves
           (-> (plate state)
               (f/rotate [0 0 30]))
-          shape/front-xf 
+          shape/top-xf
           "black")))))]))
 
-(defn handle-iso
+(defn plate-right
   [state]
   (let [zoom (r/cursor state [:scale])
         plate-r (r/cursor state [:plate-radius])]
     [:<>
      (svg/fig
-      1 "Front View of Hex Plate"
+      4 "Right View of Hex Plate"
       (svg/dwg-2d
        [250 250 1]
        (svg/scale
         @zoom
         (svg/g
          
-         (->> (svg/text (str @plate-r "in"))
-              (svg/translate [-2 5])
-              (svg/scale 1))
-         
-         (shape/render-curves 
-          (-> (handle state)
-              (f/rotate [0 0 30]))
-          shape/isometric-xf 
+         (svg/style-element
+          {:stroke "blue"
+           :fill "blue"}
+          (svg/g
+           (->> (svg/text "T") 
+                (svg/translate [(+ -4.5 (/ @plate-r 2)) 4.375])
+                (svg/scale 0.05))
+           (svg/line [0 0] [@plate-r 0])))
+
+         (shape/render-curves
+          (-> (plate state)
+              (f/rotate [0 90 30]))
+          shape/right-xf
           "black")))))]))
 
 (defn assembly-iso
@@ -224,7 +300,33 @@
       [b/slider rot 0 360 1]
       [:span "rotate: " @rot]]])) 
 
-(defn parameters []
+(defn handle-parameters [state]
+  (let [grip-w (r/cursor state [:grip-width])
+        handle-r (r/cursor state [:handle-radius])
+        handle-t (r/cursor state [:handle-thickness])]
+    [:div
+     [:div 
+      [b/slider grip-w 4.0 12.0 0.25]
+      [:span "grip width: " @grip-w]]
+     [:div
+      [b/slider handle-r 1.0 2.5 0.15]
+      [:span "handle r: " @handle-r]]
+     [:div
+      [b/slider handle-t 0.065 0.25 0.005]
+      [:span "handle thickness: " @handle-t]]]))
+
+(defn plate-parameters [state]
+  (let [plate-r (r/cursor state [:plate-radius])
+        plate-t (r/cursor state [:plate-thickness])]
+    [:div
+     [:div
+      [b/slider plate-r 2.0 16.0 0.125]
+      [:span "plate R: " @plate-r]]
+     [:div
+      [b/slider plate-t 0.065 0.25 0.005]
+      [:span "plate thickness: " @plate-t]]]))
+  
+(defn parameters [state]
   (let [zoom (r/cursor state [:scale])
         rot (r/cursor state [:view-rotation])
         plate-t (r/cursor state [:plate-thickness])
@@ -261,10 +363,34 @@ You can use this in your browser, just try adjusting some settings!
 (defn doc []
   [:<>
    intro-component
-   #_[plate-front state]
+   
+   [:section
+    (markdown
+     "### Handle Configuration"
+     
+     "Set the parameters according to the tube size you will be using for the handle part.
+")
+
+    [handle-parameters state]
+    [:div {:style {:display "flex"}}
+     [handle-front state]
+     [handle-right state]]]
+
+   [:section
+    (markdown
+     "### Hex Plate Configuration"
+     
+     "Set the parameters according to the flat sheet you will be using to make the plates.
+")
+
+    [plate-parameters state]
+    [:div {:style {:display "flex"}}
+     [plate-front state]
+     [plate-right state]]]
+    
+   
    [parameters state]
    
-   #_[handle-iso state]
    
    [assembly-iso state]
    [view-controls state]])
