@@ -58,14 +58,15 @@
         l2 (* @pt @pn)]
     (tube-rnd @r @t (+ @l1 l2))))
 
-(declare update-plate-n!)
+(declare calculate-plate-n)
 (defn assembly
   [state]
   (let [plate-r (r/cursor state [:plate-radius])
         plate-t (r/cursor state [:plate-thickness])
         grip-w (r/cursor state [:grip-width])
 
-        plate-n (update-plate-n! state 60) #_(r/cursor state [:plate-n])
+        plate-n (calculate-plate-n state 60) #_(r/cursor state [:plate-n])
+        
         handle-l (+ @grip-w (* plate-n @plate-t))
 
         grip (-> (handle state)
